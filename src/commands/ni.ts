@@ -4,11 +4,19 @@ import prompts from '@posva/prompts'
 import c from 'ansis'
 import { Fzf } from 'fzf'
 import { fetchNpmPackages } from '../fetch'
+import { buildFigSpecJSON } from '../intellisense/fig'
 import { parseNi } from '../parse'
 import { runCli } from '../runner'
 import { exclude } from '../utils'
 
 runCli(async (agent, args, ctx) => {
+  if (args[0] === '--fig-spec') {
+    const json = await buildFigSpecJSON({ ctx })
+    // eslint-disable-next-line no-console
+    console.log(json)
+    return
+  }
+
   const isInteractive = args[0] === '-i'
 
   if (isInteractive) {

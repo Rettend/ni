@@ -1,4 +1,5 @@
 import type { Agent } from 'package-manager-detector'
+import type { NestedSeparator } from './scripts'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -20,6 +21,7 @@ interface Config {
   globalAgent: Agent
   runAgent: 'node' | undefined
   useSfw: boolean
+  nestedSeparator: NestedSeparator
 }
 
 const defaultConfig: Config = {
@@ -27,9 +29,21 @@ const defaultConfig: Config = {
   globalAgent: 'npm',
   runAgent: undefined,
   useSfw: false,
+  nestedSeparator: 'both',
 }
 
 let config: Config | undefined
+
+function resolveNestedSeparator(raw: unknown): NestedSeparator {
+  if (typeof raw !== 'string')
+    return 'both'
+
+  const value = raw.trim().toLowerCase()
+  if (value === 'colon' || value === 'space' || value === 'both')
+    return value
+
+  return 'both'
+}
 
 export async function getConfig(): Promise<Config> {
   if (!config) {
@@ -40,6 +54,9 @@ export async function getConfig(): Promise<Config> {
         ? ini.parse(fs.readFileSync(rcPath, 'utf-8'))
         : null,
     )
+
+    if ('nestedSeparator' in config)
+      config.nestedSeparator = resolveNestedSeparator(config.nestedSeparator)
 
     if (process.env.NI_DEFAULT_AGENT)
       config.defaultAgent = process.env.NI_DEFAULT_AGENT as Agent
@@ -52,6 +69,9 @@ export async function getConfig(): Promise<Config> {
 
     if (process.env.NI_USE_SFW !== undefined)
       config.useSfw = process.env.NI_USE_SFW === 'true'
+
+    if (process.env.NI_NESTED_SEPARATOR)
+      config.nestedSeparator = resolveNestedSeparator(process.env.NI_NESTED_SEPARATOR)
 
     const agent = await detect({ programmatic: true })
     if (agent)
@@ -81,4 +101,9 @@ export async function getRunAgent() {
 export async function getUseSfw() {
   const { useSfw } = await getConfig()
   return useSfw
+}
+
+export async function getNestedSeparator() {
+  const { nestedSeparator } = await getConfig()
+  return nestedSeparator
 }

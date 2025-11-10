@@ -11,6 +11,7 @@ npm i -g @antfu/ni
 ```
 
 ### Homebrew (macOS)
+
 ```
 brew install ni
 ```
@@ -125,6 +126,31 @@ nr -
 
 # rerun the last command
 ```
+
+#### Nested scripts
+
+Nested `package.json` scripts are supported using either colon or space-separated segments.
+
+```json
+// package.json
+{
+  "scripts": {
+    "test": {
+      ".": "vitest",
+      "ui": "vitest --ui"
+    }
+  }
+}
+```
+
+Both execute "vitest --ui"
+
+```bash
+nr test:ui
+nr test ui
+```
+
+Use `nr test -- ui` to treat `ui` as a literal argument. History always stores the canonical colon form so `nr -` remains unambiguous.
 
 ```bash
 # Add completion script for bash
@@ -303,7 +329,12 @@ runAgent=node
 
 ; prefix commands with sfw
 useSfw=true
+
+; choose how nested scripts are parsed: colon | space | both
+nestedSeparator=both
 ```
+
+`nestedSeparator` defaults to `both`, allowing either `nr test:ui` or `nr test ui`. Set it to `colon` or `space` to enforce a single style.
 
 ```bash
 # ~/.bashrc
@@ -315,6 +346,7 @@ export NI_CONFIG_FILE="$HOME/.config/ni/nirc"
 export NI_DEFAULT_AGENT="npm" # default "prompt"
 export NI_GLOBAL_AGENT="npm"
 export NI_USE_SFW="true"
+export NI_NESTED_SEPARATOR="both"
 ```
 
 ```ps
@@ -322,6 +354,7 @@ export NI_USE_SFW="true"
 
 # custom configuration file path in PowerShell accessible within the `$profile` path
 $Env:NI_CONFIG_FILE = 'C:\to\your\config\location'
+$Env:NI_NESTED_SEPARATOR = 'both'
 ```
 
 <br>
@@ -330,6 +363,16 @@ $Env:NI_CONFIG_FILE = 'C:\to\your\config\location'
 
 Before executing any command (**ni**, **nr**, **nlx**, etc.), **ni** detects your active package manager.
 If the corresponding package manager (**npm**, **yarn**, **pnpm**, **bun**, or **deno**) is not installed, it will install it globally before running the command.
+
+### Fig & Terminal Intellisense
+
+Generate a Fig-compatible completion spec (also supported by the VS Code terminal preview) with:
+
+```bash
+ni --fig-spec > ni.fig.json
+```
+
+The generated spec dynamically reflects your local scripts, including nested entries resolved with your `nestedSeparator` preference.
 
 ### Integrations
 

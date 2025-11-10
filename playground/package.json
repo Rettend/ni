@@ -1,0 +1,28 @@
+{
+  "name": "test-nested-scripts",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'building...'",
+    "test": {
+      ".": "vitest",
+      "ui": "vitest --ui",
+      "watch": "vitest --watch",
+      "coverage": "vitest --coverage"
+    },
+    "dev": {
+      "server": "node server.js",
+      "client": "node client.js"
+    },
+    "lint": {
+      "fix": "eslint --fix"
+    }
+  },
+  "scripts-info": {
+    "build": "Build the project",
+    "test": "Run all tests",
+    "test:ui": "Run tests with UI",
+    "test:watch": "Run tests in watch mode",
+    "dev:server": "Start the development server",
+    "dev:client": "Start the client"
+  }
+}

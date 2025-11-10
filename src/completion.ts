@@ -1,5 +1,6 @@
 import type { RunnerContext } from '.'
 import { byLengthAsc, Fzf } from 'fzf'
+import { getNestedSeparator } from './config'
 import { readPackageScripts } from './package'
 
 // Print completion script
@@ -34,15 +35,31 @@ _nr_completion() {
 _nr_completion
 `.trim()
 
-export function getCompletionSuggestions(args: string[], ctx: RunnerContext | undefined) {
+export async function getCompletionSuggestions(args: string[], ctx: RunnerContext | undefined) {
   const raw = readPackageScripts(ctx)
+  const separator = await getNestedSeparator()
+  const allowSpace = separator !== 'colon'
+
   const fzf = new Fzf(raw, {
-    selector: item => item.key,
+    selector: (item) => {
+      const tokens = [item.key, item.display, item.description]
+      if (allowSpace && item.spaceKey)
+        tokens.push(item.spaceKey)
+      return tokens.join(' ')
+    },
     casing: 'case-insensitive',
-    tiebreakers: [byLengthAsc],
+    tiebreakers: [
+      (a, b) => a.item.segments.length - b.item.segments.length,
+      byLengthAsc,
+    ],
   })
 
-  const results = fzf.find(args[1] || '')
+  const input = args[1] || ''
+  const results = fzf.find(input)
 
-  return results.map(r => r.item.key)
+  return results.map((r) => {
+    if (separator === 'space' && r.item.spaceKey)
+      return r.item.spaceKey
+    return r.item.key
+  })
 }

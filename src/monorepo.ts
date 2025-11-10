@@ -1,5 +1,6 @@
 import type { Choice } from '@posva/prompts'
 import type { RunnerContext } from './runner'
+import type { PackageScript } from './scripts'
 import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
@@ -7,6 +8,7 @@ import prompts from '@posva/prompts'
 import { byLengthAsc, Fzf } from 'fzf'
 import { globSync } from 'tinyglobby'
 import { getPackageJSON } from './fs'
+import { flattenPackageScripts } from './scripts'
 
 export const IGNORE_PATHS = [
   '**/node_modules/**',
@@ -35,7 +37,7 @@ export function findPackages(ctx?: RunnerContext) {
   return pkgs
 }
 
-export async function promptSelectPackage(ctx?: RunnerContext, command?: string): Promise<RunnerContext | undefined> {
+export async function promptSelectPackage(ctx?: RunnerContext, commandTokens: string[] = []): Promise<RunnerContext | undefined> {
   const cwd = ctx?.cwd ?? process.cwd()
   const packagePaths = findPackages(ctx)
   if (packagePaths.length <= 1) {
@@ -44,22 +46,37 @@ export async function promptSelectPackage(ctx?: RunnerContext, command?: string)
 
   const blank = ' '.repeat(process.stdout?.columns || 80)
   // Prompt the user to select a package
-  let choices: (Choice & { scripts: Record<string, string> })[] = packagePaths.map((item) => {
+  let choices: (Choice & { scripts: PackageScript[] })[] = packagePaths.map((item) => {
     const filePath = resolve(cwd, item)
     const dir = dirname(filePath)
     const pkg = getPackageJSON({ ...ctx, cwd: dir, programmatic: true })
+    const scripts = flattenPackageScripts(pkg?.scripts, pkg?.['scripts-info'])
 
     return {
       title: pkg.name ?? item,
       value: dir,
       description: `${pkg.description ?? filePath}${blank}`,
-      scripts: pkg.scripts,
+      scripts,
     }
   })
 
   // Filter packages that have the command
-  if (command) {
-    choices = choices.filter(c => c.scripts?.[command])
+  if (commandTokens.length) {
+    const colonKey = commandTokens.join(':')
+    const spaceKey = commandTokens.join(' ')
+    const first = commandTokens[0]
+
+    choices = choices.filter((choice) => {
+      return choice.scripts.some((script) => {
+        if (colonKey && script.key === colonKey)
+          return true
+        if (spaceKey && script.spaceKey === spaceKey)
+          return true
+        if (first && script.segments[0] === first)
+          return true
+        return false
+      })
+    })
   }
   if (!choices.length) {
     return ctx

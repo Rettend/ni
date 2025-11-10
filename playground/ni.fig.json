@@ -1,0 +1,147 @@
+{
+  "name": "ni-toolchain",
+  "description": "Completion spec for ni, nr, and related commands",
+  "subcommands": [
+    {
+      "name": "ni",
+      "description": "Install dependencies using the detected package manager",
+      "options": [
+        {
+          "name": "-g",
+          "description": "Install globally"
+        },
+        {
+          "name": "-P",
+          "description": "Install in production mode"
+        },
+        {
+          "name": "--frozen",
+          "description": "Use frozen lockfile"
+        },
+        {
+          "name": "--frozen-if-present",
+          "description": "Freeze install when a lockfile is available"
+        },
+        {
+          "name": "-i",
+          "description": "Interactive dependency selection"
+        }
+      ],
+      "args": {
+        "name": "dependency",
+        "description": "Packages to install",
+        "isVariadic": true,
+        "isOptional": true
+      }
+    },
+    {
+      "name": "nci",
+      "description": "Run a clean install",
+      "options": [
+        {
+          "name": "--frozen",
+          "description": "Install using a frozen lockfile when supported"
+        }
+      ]
+    },
+    {
+      "name": "nr",
+      "description": "Run npm scripts with automatic agent detection",
+      "options": [
+        {
+          "name": "-p",
+          "description": "Select a package in a monorepo",
+          "args": {
+            "name": "package"
+          }
+        },
+        {
+          "name": "--if-present",
+          "description": "Ignore missing scripts"
+        },
+        {
+          "name": "--completion",
+          "description": "Emit dynamic completion suggestions"
+        },
+        {
+          "name": "--completion-bash",
+          "description": "Print the Bash completion script"
+        },
+        {
+          "name": "--completion-zsh",
+          "description": "Print the Zsh completion script"
+        }
+      ],
+      "args": {
+        "name": "script",
+        "description": "Script name to execute",
+        "generators": [
+          {}
+        ],
+        "isOptional": true
+      }
+    },
+    {
+      "name": "nlx",
+      "description": "Download and execute temporary commands",
+      "options": [],
+      "args": {
+        "name": "command",
+        "description": "Command and arguments to execute",
+        "isVariadic": true,
+        "isOptional": false
+      }
+    },
+    {
+      "name": "nup",
+      "description": "Upgrade dependencies with the detected agent",
+      "options": [
+        {
+          "name": "-i",
+          "description": "Interactive upgrade (agent dependent)"
+        }
+      ]
+    },
+    {
+      "name": "nun",
+      "description": "Uninstall dependencies",
+      "options": [
+        {
+          "name": "-m",
+          "description": "Select multiple dependencies interactively"
+        },
+        {
+          "name": "-g",
+          "description": "Uninstall globally"
+        }
+      ],
+      "args": {
+        "name": "dependency",
+        "description": "Packages to remove",
+        "isVariadic": true,
+        "isOptional": true
+      }
+    },
+    {
+      "name": "nd",
+      "description": "Dedupe dependencies",
+      "options": [
+        {
+          "name": "-c",
+          "description": "Run in check mode when supported by the agent"
+        }
+      ]
+    },
+    {
+      "name": "na",
+      "description": "Forward commands to the detected agent",
+      "options": [],
+      "args": {
+        "name": "args",
+        "description": "Arguments forwarded to the agent",
+        "isVariadic": true,
+        "isOptional": true
+      }
+    }
+  ]
+}

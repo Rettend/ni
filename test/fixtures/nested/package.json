@@ -1,0 +1,18 @@
+{
+  "name": "nested-app",
+  "scripts": {
+    "build": "tsc -b",
+    "test": {
+      ".": "vitest",
+      "ui": {
+        ".": "vitest --ui"
+      }
+    }
+  },
+  "scripts-info": {
+    "test": {
+      ".": "Run all tests",
+      "ui": "UI runner"
+    }
+  }
+}

@@ -1,36 +1,53 @@
 import type { Choice } from '@posva/prompts'
 import type { PackageScript } from '../package'
+import type { RunnerContext } from '../runner'
+import type { NestedSeparator } from '../scripts'
 import process from 'node:process'
 import prompts from '@posva/prompts'
 import { byLengthAsc, Fzf } from 'fzf'
 import { getCompletionSuggestions, rawBashCompletionScript, rawZshCompletionScript } from '../completion'
+import { getNestedSeparator } from '../config'
 import { readPackageScripts, readWorkspaceScripts } from '../package'
 import { parseNr } from '../parse'
 import { runCli } from '../runner'
+import { prepareScriptMatch } from '../scripts'
 import { dump, load } from '../storage'
 import { limitText } from '../utils'
 
 runCli(async (agent, args, ctx) => {
   const storage = await load()
+  const nestedSeparator = await getNestedSeparator()
+
+  let scripts: PackageScript[] | undefined
 
   const promptSelectScript = async (raw: PackageScript[]) => {
     const terminalColumns = process.stdout?.columns || 80
 
     const last = storage.lastRunCommand
-    const choices = raw.reduce<Choice[]>((acc, { key, description }) => {
-      const item = {
-        title: key,
+    const choices = raw.map<Choice>((script) => {
+      const { key, description, display } = script
+      return {
+        title: display,
         value: key,
-        description: limitText(description, terminalColumns - 15),
+        description: limitText(
+          display !== key
+            ? `${description} (${key})`
+            : description,
+          terminalColumns - 15,
+        ),
       }
-      if (last && key === last) {
-        return [item, ...acc]
+    })
+
+    if (last) {
+      const index = choices.findIndex(choice => choice.value === last)
+      if (index > 0) {
+        const [lastChoice] = choices.splice(index, 1)
+        choices.unshift(lastChoice)
       }
-      return [...acc, item]
-    }, [])
+    }
 
     const fzf = new Fzf(raw, {
-      selector: item => `${item.key} ${item.description}`,
+      selector: item => `${item.key} ${item.display} ${item.description}`,
       casing: 'case-insensitive',
       tiebreakers: [byLengthAsc],
     })
@@ -68,7 +85,7 @@ runCli(async (agent, args, ctx) => {
       const compWords = args.slice(1)
       // Only complete the second word (nr __here__ ...)
       if (compCword === 1) {
-        const suggestions = getCompletionSuggestions(compWords, ctx)
+        const suggestions = await getCompletionSuggestions(compWords, ctx)
 
         // eslint-disable-next-line no-console
         console.log(suggestions.join('\n'))
@@ -76,7 +93,7 @@ runCli(async (agent, args, ctx) => {
     }
     // In other shells, return suggestions directly
     else {
-      const suggestions = getCompletionSuggestions(args, ctx)
+      const suggestions = await getCompletionSuggestions(args, ctx)
 
       // eslint-disable-next-line no-console
       console.log(suggestions.join('\n'))
@@ -100,7 +117,8 @@ runCli(async (agent, args, ctx) => {
 
   // -p is a flag attempt to read scripts from monorepo
   if (args[0] === '-p') {
-    const raw = await readWorkspaceScripts(ctx, args)
+    scripts = await readWorkspaceScripts(ctx, args)
+    const raw = scripts
     // Show prompt if there are multiple scripts
     if (raw.length > 1) {
       await promptSelectScript(raw)
@@ -120,14 +138,68 @@ runCli(async (agent, args, ctx) => {
   }
 
   if (args.length === 0 && !ctx?.programmatic) {
-    const raw = readPackageScripts(ctx)
-    await promptSelectScript(raw)
+    scripts = readPackageScripts(ctx)
+    await promptSelectScript(scripts)
   }
 
-  if (storage.lastRunCommand !== args[0]) {
-    storage.lastRunCommand = args[0]
+  scripts = scripts ?? readPackageScripts(ctx)
+
+  const matchedScript = normalizeScriptArgs(args, scripts, nestedSeparator, ctx)
+
+  if (matchedScript && storage.lastRunCommand !== matchedScript.key) {
+    storage.lastRunCommand = matchedScript.key
     dump()
   }
 
   return parseNr(agent, args, ctx)
 })
+
+function normalizeScriptArgs(
+  args: string[],
+  scripts: PackageScript[],
+  separator: NestedSeparator,
+  ctx: RunnerContext | undefined,
+): PackageScript | undefined {
+  const match = prepareScriptMatch(args, scripts, separator)
+
+  if (!match)
+    return undefined
+
+  if (match.script) {
+    if (match.consumed > 1 || args[match.startIndex] !== match.script.key)
+      args.splice(match.startIndex, match.consumed, match.script.key)
+
+    const separatorIndex = match.startIndex + 1
+    if (args[separatorIndex] === '--')
+      args.splice(separatorIndex, 1)
+
+    return match.script
+  }
+
+  if (match.reason === 'space-not-allowed') {
+    const attempted = match.attempted ?? match.tokens.slice(0, match.consumed).join(' ')
+    const suggestion = match.related?.[0]?.key
+    const message = suggestion
+      ? `Script "${attempted}" is nested. Use the colon form "${suggestion}" or set nestedSeparator=space.`
+      : `Unable to resolve nested script "${attempted}" with the current nestedSeparator preference.`
+    handleNormalizationError(message, ctx)
+  }
+
+  if (match.reason === 'nested-only') {
+    const [base] = match.tokens
+    const options = match.related?.map(s => s.key).sort()
+    const message = options && options.length
+      ? `Script "${base}" has no direct command. Available nested scripts: ${options.join(', ')}.`
+      : `Script "${base}" has no direct command.`
+    handleNormalizationError(message, ctx)
+  }
+
+  return undefined
+}
+
+function handleNormalizationError(message: string, ctx: RunnerContext | undefined): never {
+  if (ctx?.programmatic)
+    throw new Error(message)
+  console.error(message)
+  process.exit(1)
+}
